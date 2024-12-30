@@ -34,7 +34,7 @@ Biggest challenges:
 
 # Usage
 
-1) To deploy resources, first, login to your Azure account using cli and optionally set subscription if you have more than one associated with your account using following commands:
+1) To deploy resources, first, login to your Azure account using cli and optionally set a subscription (if you have more than one associated with your account) using the following commands:
     ```
     az login
     az account set --subscription "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
@@ -43,7 +43,7 @@ Biggest challenges:
     ```
     ansible-playbook main.yml
     ```
-2) To destroy resources, run following command:
+2) To destroy resources, run the following command:
     ```
     ansible-playbook main.yml --tags destroy-all
     ```
