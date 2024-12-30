@@ -1,0 +1,9 @@
+config:
+  azure-native:location: eastus
+  az-poc:deploymentRegion: eastus
+  az-poc:resourcePrefix: pul
+  az-poc:resourceTags:
+    env: poc
+  az-poc:sshPublicKeyPath: <PATH_TO_SSH_PUBKEY_FILE>
+  az-poc:whitelistedIpRanges:
+    - <YOUR_IP_ADDRESS>/32
