@@ -1,0 +1,215 @@
+- name: Provision resources
+  hosts: localhost
+  vars:
+    default_tags:
+      deployed-by: "ansible-module-simplelinuxvm"
+    rg_name: "{{ resource_prefix }}-rg01"
+    network_name: "{{ resource_prefix }}-vnet01"
+    vm_name: "{{ resource_prefix }}-vm01"
+    bastion_name: "{{ resource_prefix }}-bast01"
+    nsg_name: "{{ resource_prefix }}-nsg01"
+  tasks:
+    - name: Create a resource group
+      azure.azcollection.azure_rm_resourcegroup:
+        name: "{{ rg_name }}"
+        location: "{{ deployment_region }}"
+        tags: "{{ resource_tags | ansible.builtin.combine(default_tags) }}"
+        state: present
+      register: resourcegroup
+
+    - name: Create a virtual network
+      azure.azcollection.azure_rm_virtualnetwork:
+        resource_group: "{{ resourcegroup.state.name }}"
+        location: "{{ resourcegroup.state.location }}"
+        name: "{{ network_name }}"
+        address_prefixes_cidr:
+          - 10.0.0.0/16
+        tags: "{{ resource_tags | ansible.builtin.combine(default_tags) }}"
+        state: present
+      register: virtualnetwork
+
+    - name: Create a security group
+      azure.azcollection.azure_rm_securitygroup:
+        resource_group: "{{ resourcegroup.state.name }}"
+        location: "{{ resourcegroup.state.location }}"
+        name: "{{ nsg_name }}"
+        rules:
+          - name: sshAllowFromHome
+            protocol: Tcp
+            destination_port_range: 22
+            source_port_range: '*'
+            access: Allow
+            priority: 100
+            direction: Inbound
+            source_address_prefix: "{{ whitelisted_ip_ranges }}"
+            destination_address_prefix:
+              - '10.0.1.0/24'
+        tags: "{{ resource_tags | ansible.builtin.combine(default_tags) }}"
+        state: present
+      register: securitygroup
+
+    - name: Create a subnet
+      azure.azcollection.azure_rm_subnet:
+        resource_group: "{{ resourcegroup.state.name }}"
+        virtual_network_name: "{{ virtualnetwork.state.name }}"
+        name: "{{ network_name }}-subnet01"
+        address_prefix_cidr: "10.0.1.0/24"
+        security_group: "{{ securitygroup.state.name }}"
+        state: present
+      register: subnet
+
+    - name: Create a public ip address
+      azure.azcollection.azure_rm_publicipaddress:
+        resource_group: "{{ resourcegroup.state.name }}"
+        location: "{{ resourcegroup.state.location }}"
+        name: "{{ network_name }}-ip01"
+        sku: "Basic"
+        allocation_method: "Dynamic"
+        tags: "{{ resource_tags | ansible.builtin.combine(default_tags) }}"
+        state: present
+      register: publicipaddress
+
+    - name: Create a network interface
+      azure.azcollection.azure_rm_networkinterface:
+        resource_group: "{{ resourcegroup.state.name }}"
+        location: "{{ resourcegroup.state.location }}"
+        name: "{{ vm_name }}-nic01"
+        virtual_network: "{{ virtualnetwork.state.name }}"
+        subnet_name: "{{ subnet.state.name }}"
+        create_with_security_group: false
+        ip_configurations:
+          - name: "{{ vm_name }}-ipcfg01"
+            public_ip_address_name: "{{ network_name }}-ip01"
+            private_ip_allocation_method: "Dynamic"
+        tags: "{{ resource_tags | ansible.builtin.combine(default_tags) }}"
+        state: present
+      register: networkinterface
+
+    - name: Create a VM
+      azure.azcollection.azure_rm_virtualmachine:
+        resource_group: "{{ resourcegroup.state.name }}"
+        location: "{{ resourcegroup.state.location }}"
+        name: "{{ vm_name }}"
+        vm_size: Standard_B1s
+        created_nsg: true
+        network_interfaces:
+          - "{{ vm_name }}-nic01"
+        admin_username: user01
+        image:
+          offer: 0001-com-ubuntu-server-jammy
+          publisher: Canonical
+          sku: 22_04-lts
+          version: latest
+        managed_disk_type: Standard_LRS
+        os_disk_name: "{{ vm_name }}-disk01"
+        os_disk_caching: "ReadWrite"
+        short_hostname: "{{ vm_name }}"
+        ssh_password_enabled: false
+        ssh_public_keys:
+          - path: /home/user01/.ssh/authorized_keys
+            key_data: "{{ lookup('ansible.builtin.file', ssh_public_key_path) }}"
+        tags: "{{ resource_tags | ansible.builtin.combine(default_tags) }}"
+        state: present
+      register: virtualmachine
+
+    - name: Display VM ip address
+      ansible.builtin.debug:
+        var: publicipaddress.state.ip_address
+
+    - name: Get facts for a resource group
+      azure.azcollection.azure_rm_resourcegroup_info:
+        name: "{{ rg_name }}"
+      register: resourcegroup_info
+      tags:
+        - never
+        - destroy-virtualmachine
+        - destroy-networkinterface
+        - destroy-publicipaddress
+        - destroy-subnet
+        - destroy-securitygroup
+        - destroy-virtualnetwork
+        - destroy-resourcegroup
+        - destroy-all
+
+    - name: Destroy a VM
+      azure.azcollection.azure_rm_virtualmachine:
+        resource_group: "{{ resourcegroup_info.resourcegroups[0].name }}"
+        name: "{{ vm_name }}"
+        state: absent
+      retries: 3
+      delay: 10
+      tags:
+        - never
+        - destroy-virtualmachine
+        - destroy-all
+
+    - name: Destroy a network interface
+      azure.azcollection.azure_rm_networkinterface:
+        resource_group: "{{ resourcegroup_info.resourcegroups[0].name }}"
+        name: "{{ vm_name }}-nic01"
+        state: absent
+      retries: 3
+      delay: 10
+      tags:
+        - never
+        - destroy-networkinterface
+        - destroy-all
+
+    - name: Destroy a public ip address
+      azure.azcollection.azure_rm_publicipaddress:
+        resource_group: "{{ resourcegroup_info.resourcegroups[0].name }}"
+        name: "{{ network_name }}-ip01"
+        state: absent
+      retries: 3
+      delay: 10
+      tags:
+        - never
+        - destroy-publicipaddress
+        - destroy-all
+
+    - name: Destroy a subnet
+      azure.azcollection.azure_rm_subnet:
+        resource_group: "{{ resourcegroup_info.resourcegroups[0].name }}"
+        virtual_network_name: "{{ network_name }}"
+        name: "{{ network_name }}-subnet01"
+        state: absent
+      retries: 3
+      delay: 10
+      tags:
+        - never
+        - destroy-subnet
+        - destroy-all
+
+    - name: Destroy a security group
+      azure.azcollection.azure_rm_securitygroup:
+        resource_group: "{{ resourcegroup_info.resourcegroups[0].name }}"
+        name: "{{ nsg_name }}"
+        state: absent
+      retries: 3
+      delay: 10
+      tags:
+        - never
+        - destroy-securitygroup
+        - destroy-all
+
+    - name: Destroy a virtual network
+      azure.azcollection.azure_rm_virtualnetwork:
+        resource_group: "{{ resourcegroup_info.resourcegroups[0].name }}"
+        name: "{{ network_name }}"
+        state: absent
+      retries: 3
+      delay: 10
+      tags:
+        - never
+        - destroy-virtualnetwork
+        - destroy-all
+
+    - name: Destroy a resource group
+      azure.azcollection.azure_rm_resourcegroup:
+        name: "{{ resourcegroup_info.resourcegroups[0].name }}"
+        state: absent
+        force_delete_nonempty: true
+      tags:
+        - never
+        - destroy-resourcegroup
+        - destroy-all
