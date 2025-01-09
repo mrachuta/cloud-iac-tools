@@ -18,7 +18,6 @@ except KeyError or AttributeError as err:
 rg_name = f"{resource_prefix}-rg01"
 network_name = f"{resource_prefix}-vnet01"
 vm_name = f"{resource_prefix}-vm01"
-bastion_name = f"{resource_prefix}-bast01"
 nsg_name = f"{resource_prefix}-nsg01"
 resource_tags.update({"deployed-by": "pulumi-module-simplelinuxvm"})
 # Read ssh pubkey
