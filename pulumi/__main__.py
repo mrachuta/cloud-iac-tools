@@ -40,6 +40,7 @@ my_network = network.VirtualNetwork(
         ]
     },
     tags=resource_tags,
+    opts=pulumi.ResourceOptions(delete_before_replace=True)
 )
 
 my_nsg = network.NetworkSecurityGroup(
@@ -61,6 +62,7 @@ my_nsg = network.NetworkSecurityGroup(
         },
     ],
     tags=resource_tags,
+    opts=pulumi.ResourceOptions(delete_before_replace=True)
 )
 
 my_subnet = network.Subnet(
@@ -70,6 +72,7 @@ my_subnet = network.Subnet(
     resource_group_name=my_rg.name,
     virtual_network_name=my_network.name,
     network_security_group={"id": my_nsg.id},
+    opts=pulumi.ResourceOptions(delete_before_replace=True)
 )
 
 my_public_ip = network.PublicIPAddress(
@@ -80,6 +83,7 @@ my_public_ip = network.PublicIPAddress(
     public_ip_allocation_method="Dynamic",
     sku={"name": "Basic"},
     tags=resource_tags,
+    opts=pulumi.ResourceOptions(delete_before_replace=True)
 )
 
 my_nic = network.NetworkInterface(
@@ -96,6 +100,7 @@ my_nic = network.NetworkInterface(
         },
     ],
     tags=resource_tags,
+    opts=pulumi.ResourceOptions(delete_before_replace=True)
 )
 
 my_vm = compute.VirtualMachine(
@@ -141,6 +146,7 @@ my_vm = compute.VirtualMachine(
             },
         },
     },
+    opts=pulumi.ResourceOptions(delete_before_replace=True)
 )
 
 # Outputs
