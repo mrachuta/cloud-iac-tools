@@ -17,7 +17,7 @@ pulumi new azure-python --name az-poc --description "Pulumi Azure deployment usi
 
 Biggest challenges:
 
-* no automatic dependecy management (dependencies between cloud objects; you need to create them in logical order; deletion is more automated)
+* sometimes complex logic for non-professional programmers (.apply() method to get resource attributes)
 * quickstart is not as easy as expected (Pulumi tries to force you to use Pulumi Cloud)
 
 # Preparation
@@ -50,10 +50,10 @@ Biggest challenges:
     ```
     Then deploy resources:
     ```
-    pulumi up
+    pulumi up -s dev
     ```
     NOTE: It will ask you to create secret passphrase to secure your configuration and secrets
 2) To destroy resources, run the following command:
     ```
-    pulumi destroy
+    pulumi destroy -s dev
     ```
